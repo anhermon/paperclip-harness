@@ -53,6 +53,7 @@ harness-core = { path = "crates/core" }
 harness-tools = { path = "crates/tools" }
 harness-memory = { path = "crates/memory" }
 harness-github = { path = "crates/github" }
+harness-paperclip = { path = "crates/paperclip" }
 
 [profile.release]
 lto = true
