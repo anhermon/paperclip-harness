@@ -697,11 +697,7 @@ mod tests {
             "the final answer",
         )]));
         let config = make_config(5);
-        let agent = Agent::new(
-            provider as Arc<dyn Provider>,
-            Arc::clone(&memory),
-            config,
-        );
+        let agent = Agent::new(provider as Arc<dyn Provider>, Arc::clone(&memory), config);
 
         let session = agent.run("what is 2+2?").await.unwrap();
 
