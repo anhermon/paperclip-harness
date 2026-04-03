@@ -76,8 +76,14 @@ struct ApiResponse {
 #[derive(Deserialize)]
 #[serde(tag = "type", rename_all = "snake_case")]
 enum ApiContent {
-    Text { text: String },
-    ToolUse { id: String, name: String, input: serde_json::Value },
+    Text {
+        text: String,
+    },
+    ToolUse {
+        id: String,
+        name: String,
+        input: serde_json::Value,
+    },
     #[serde(other)]
     Unknown,
 }
@@ -132,7 +138,10 @@ impl ClaudeProvider {
                             serde_json::to_value(blocks).map_err(HarnessError::Serialization)?
                         }
                     };
-                    api_messages.push(ApiMessage { role: role.to_string(), content });
+                    api_messages.push(ApiMessage {
+                        role: role.to_string(),
+                        content,
+                    });
                 }
             }
         }
@@ -174,7 +183,10 @@ impl ClaudeProvider {
                 .map(|e| e.error.message)
                 .unwrap_or(raw);
             warn!(status = %status, error = %msg, "Anthropic API error");
-            return Err(HarnessError::Api { status: status.as_u16(), body: msg });
+            return Err(HarnessError::Api {
+                status: status.as_u16(),
+                body: msg,
+            });
         }
 
         let api_resp: ApiResponse = resp
@@ -199,8 +211,10 @@ impl ClaudeProvider {
         // If any tool_use blocks are present return the full structured content
         // so the agent loop can dispatch tool calls.  Otherwise fall back to
         // joining plain text (preserves existing `complete()` behavior).
-        let has_tool_use =
-            api_resp.content.iter().any(|c| matches!(c, ApiContent::ToolUse { .. }));
+        let has_tool_use = api_resp
+            .content
+            .iter()
+            .any(|c| matches!(c, ApiContent::ToolUse { .. }));
 
         let message = if has_tool_use {
             let blocks: Vec<ContentBlock> = api_resp
@@ -214,20 +228,32 @@ impl ClaudeProvider {
                     ApiContent::Unknown => None,
                 })
                 .collect();
-            Message { role: Role::Assistant, content: MessageContent::Blocks(blocks) }
+            Message {
+                role: Role::Assistant,
+                content: MessageContent::Blocks(blocks),
+            }
         } else {
             let text = api_resp
                 .content
                 .iter()
                 .filter_map(|c| {
-                    if let ApiContent::Text { text } = c { Some(text.as_str()) } else { None }
+                    if let ApiContent::Text { text } = c {
+                        Some(text.as_str())
+                    } else {
+                        None
+                    }
                 })
                 .collect::<Vec<_>>()
                 .join("");
             Message::assistant(text)
         };
 
-        Ok(TurnResponse { message, stop_reason, usage, model: api_resp.model })
+        Ok(TurnResponse {
+            message,
+            stop_reason,
+            usage,
+            model: api_resp.model,
+        })
     }
 }
 
@@ -280,7 +306,10 @@ mod tests {
                         MessageContent::Text(t) => serde_json::Value::String(t.clone()),
                         MessageContent::Blocks(blocks) => serde_json::to_value(blocks).unwrap(),
                     };
-                    api_messages.push(ApiMessage { role: role.to_string(), content });
+                    api_messages.push(ApiMessage {
+                        role: role.to_string(),
+                        content,
+                    });
                 }
             }
         }
@@ -329,13 +358,18 @@ mod tests {
     #[test]
     fn no_tools_omits_field_from_body() {
         let body = build_request_body(&[Message::user("hello")], &[]);
-        assert!(body.get("tools").is_none(), "tools key must be absent when empty");
+        assert!(
+            body.get("tools").is_none(),
+            "tools key must be absent when empty"
+        );
     }
 
     #[test]
     fn tool_use_response_parsed_into_content_blocks() {
         let api_content = vec![
-            ApiContent::Text { text: "Let me look that up.".to_string() },
+            ApiContent::Text {
+                text: "Let me look that up.".to_string(),
+            },
             ApiContent::ToolUse {
                 id: "tu_abc".to_string(),
                 name: "search".to_string(),
@@ -343,7 +377,9 @@ mod tests {
             },
         ];
 
-        let has_tool_use = api_content.iter().any(|c| matches!(c, ApiContent::ToolUse { .. }));
+        let has_tool_use = api_content
+            .iter()
+            .any(|c| matches!(c, ApiContent::ToolUse { .. }));
         assert!(has_tool_use);
 
         let blocks: Vec<ContentBlock> = api_content
@@ -368,16 +404,26 @@ mod tests {
 
     #[test]
     fn text_only_response_joins_to_plain_message() {
-        let api_content = vec![
-            ApiContent::Text { text: "hello ".to_string() },
-            ApiContent::Text { text: "world".to_string() },
+        let api_content = [
+            ApiContent::Text {
+                text: "hello ".to_string(),
+            },
+            ApiContent::Text {
+                text: "world".to_string(),
+            },
         ];
-        let has_tool_use = api_content.iter().any(|c| matches!(c, ApiContent::ToolUse { .. }));
+        let has_tool_use = api_content
+            .iter()
+            .any(|c| matches!(c, ApiContent::ToolUse { .. }));
         assert!(!has_tool_use);
         let text: String = api_content
             .iter()
             .filter_map(|c| {
-                if let ApiContent::Text { text } = c { Some(text.as_str()) } else { None }
+                if let ApiContent::Text { text } = c {
+                    Some(text.as_str())
+                } else {
+                    None
+                }
             })
             .collect::<Vec<_>>()
             .join("");
@@ -418,6 +464,9 @@ mod tests {
                 .any(|b| matches!(b, ContentBlock::ToolUse { name, .. } if name == "get_weather")),
             _ => false,
         };
-        assert!(has_tool_block, "expected get_weather tool_use block in response");
+        assert!(
+            has_tool_block,
+            "expected get_weather tool_use block in response"
+        );
     }
 }
