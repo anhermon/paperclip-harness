@@ -7,20 +7,33 @@ use indicatif::{ProgressBar, ProgressStyle};
 use std::time::Duration;
 
 const VERSION: &str = env!("CARGO_PKG_VERSION");
+const ASCII_BANNER: &str = include_str!("assets/anvil.txt");
 
-/// Print the startup banner.
+/// Print the startup banner with ASCII art when stderr is a TTY.
 ///
-/// ```text
-///   ▲ anvil  v0.1.0
-///   ─────────────────────────────────────────
-/// ```
+/// When connected to a terminal prints the full ASCII art anvil logo followed
+/// by the "anvil vX.Y.Z" byline.  When piped / redirected, prints a compact
+/// single-line header so logs stay parseable.
 pub fn print_banner() {
-    eprintln!(
-        "\n  {} {}  v{VERSION}",
-        style("▲").cyan().bold(),
-        style("anvil").bold(),
-    );
-    eprintln!("  {}", style("─".repeat(41)).dim());
+    if console::Term::stderr().is_term() {
+        // Print each line of the ASCII art dimmed so it doesn't overpower output.
+        for line in ASCII_BANNER.lines() {
+            eprintln!("  {}", style(line).dim());
+        }
+        eprintln!(
+            "        {} {}  v{VERSION}\n",
+            style("anvil").bold(),
+            style("—").dim(),
+        );
+        eprintln!("  {}", style("─".repeat(41)).dim());
+    } else {
+        eprintln!(
+            "\n  {} {}  v{VERSION}",
+            style("▲").cyan().bold(),
+            style("anvil").bold(),
+        );
+        eprintln!("  {}", style("─".repeat(41)).dim());
+    }
 }
 
 /// Print the session header with session ID, model and provider.
@@ -47,9 +60,7 @@ pub fn thinking_spinner(msg: &str) -> ProgressBar {
     let pb = ProgressBar::new_spinner();
     pb.set_style(
         ProgressStyle::default_spinner()
-            .tick_strings(&[
-                "⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏",
-            ])
+            .tick_strings(&["⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"])
             .template("{spinner:.cyan.dim} {msg:.dim}")
             .unwrap_or_else(|_| ProgressStyle::default_spinner()),
     );
@@ -81,7 +92,11 @@ pub fn print_tool_result(output: &str) {
         .collect::<String>()
         .replace('\n', " ↵ ");
     if truncated {
-        eprintln!("       {}  {}", style(preview).dim(), style("[truncated]").dim());
+        eprintln!(
+            "       {}  {}",
+            style(preview).dim(),
+            style("[truncated]").dim()
+        );
     } else {
         eprintln!("       {}", style(preview).dim());
     }
@@ -97,12 +112,7 @@ pub fn print_response(text: &str) {
 /// ```text
 ///   tokens: 312 in / 78 out  |  3 iterations  |  1.4s
 /// ```
-pub fn print_session_summary(
-    tokens_in: u32,
-    tokens_out: u32,
-    iterations: usize,
-    elapsed_ms: u64,
-) {
+pub fn print_session_summary(tokens_in: u32, tokens_out: u32, iterations: usize, elapsed_ms: u64) {
     let secs = elapsed_ms as f64 / 1000.0;
     eprintln!(
         "\n  {}",

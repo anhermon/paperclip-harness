@@ -113,14 +113,15 @@ pub async fn execute(args: RunArgs) -> anyhow::Result<()> {
 
     if args.stream {
         // Streaming mode: print tokens as they arrive, then persist to memory.
-        let msgs = vec![
-            harness_core::message::Message::system(
-                config.agent.system_prompt.as_deref().unwrap_or(
-                    "You are a helpful assistant. Complete the user's goal concisely.",
+        let msgs =
+            vec![
+                harness_core::message::Message::system(
+                    config.agent.system_prompt.as_deref().unwrap_or(
+                        "You are a helpful assistant. Complete the user's goal concisely.",
+                    ),
                 ),
-            ),
-            harness_core::message::Message::user(&args.goal),
-        ];
+                harness_core::message::Message::user(&args.goal),
+            ];
 
         ui::print_banner();
         ui::print_session_header("stream", &config.provider.model, &backend);
