@@ -50,9 +50,9 @@ impl AuthMethod {
     pub fn apply(&self, builder: reqwest::RequestBuilder) -> reqwest::RequestBuilder {
         match self {
             Self::ApiKey(key) => builder.header("x-api-key", key),
-            Self::BearerToken { token, .. } => {
-                builder.header("Authorization", format!("Bearer {token}"))
-            }
+            Self::BearerToken { token, .. } => builder
+                .header("Authorization", format!("Bearer {token}"))
+                .header("anthropic-beta", "oauth-2025-04-20"),
         }
     }
 
