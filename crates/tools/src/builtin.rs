@@ -33,11 +33,12 @@ impl ToolHandler for SpawnSubagentTool {
     fn schema(&self) -> ToolSchema {
         ToolSchema {
             name: "spawn_subagent".to_string(),
-            description:
-                "Spawn a sub-agent to handle a delegated sub-task. \
+            description: "Spawn a sub-agent to handle a delegated sub-task. \
                  The sub-agent shares the same provider and tool set as the main agent. \
-                 Returns the sub-agent's final response text."
-                    .to_string(),
+                 Returns the sub-agent's final response text. \
+                 Maximum nesting depth is 4 (MAX_SUBAGENT_DEPTH); calls beyond that depth \
+                 are rejected with an error."
+                .to_string(),
             input_schema: serde_json::json!({
                 "type": "object",
                 "properties": {
@@ -62,6 +63,14 @@ impl ToolHandler for SpawnSubagentTool {
 }
 
 /// Read the UTF-8 contents of a file at a given path.
+///
+/// # Security
+///
+/// To prevent agents from reading arbitrary host files, this tool:
+/// - Rejects absolute paths
+/// - Rejects any path component that is `..` (parent-directory traversal)
+///
+/// Only relative paths that stay within the working directory are permitted.
 pub struct ReadFileTool;
 
 #[async_trait]
@@ -71,13 +80,21 @@ impl ToolHandler for ReadFileTool {
     }
 
     async fn call(&self, input: Value) -> ToolOutput {
-        let path = match input["path"].as_str() {
-            Some(p) => p.to_string(),
-            None => return ToolOutput::err("missing required field: path"),
-        };
-        match std::fs::read_to_string(&path) {
+        let raw = input["path"].as_str().unwrap_or("").to_string();
+        if raw.is_empty() {
+            return ToolOutput::err("path is required");
+        }
+        // Reject absolute paths and traversal attempts
+        let p = std::path::Path::new(&raw);
+        if p.is_absolute() {
+            return ToolOutput::err("absolute paths are not allowed");
+        }
+        if p.components().any(|c| c == std::path::Component::ParentDir) {
+            return ToolOutput::err("path traversal (..) is not allowed");
+        }
+        match std::fs::read_to_string(&raw) {
             Ok(contents) => ToolOutput::ok(contents),
-            Err(e) => ToolOutput::err(format!("read_file failed for {path}: {e}")),
+            Err(e) => ToolOutput::err(format!("read_file failed for {raw}: {e}")),
         }
     }
 }
