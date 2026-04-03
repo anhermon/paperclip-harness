@@ -281,4 +281,36 @@ mod tests {
             .with_run_id("run-abc".into());
         assert_eq!(c.run_id.as_deref(), Some("run-abc"));
     }
+
+    /// checkout() must return Ok(None) on a 409 Conflict response so the
+    /// heartbeat loop skips the task rather than propagating an error.
+    #[tokio::test]
+    async fn checkout_returns_none_on_409() {
+        use tokio::io::{AsyncReadExt, AsyncWriteExt};
+        use tokio::net::TcpListener;
+
+        let listener = TcpListener::bind("127.0.0.1:0").await.unwrap();
+        let addr = listener.local_addr().unwrap();
+
+        tokio::spawn(async move {
+            let (mut stream, _) = listener.accept().await.unwrap();
+            let mut buf = vec![0u8; 1024];
+            let _ = stream.read(&mut buf).await;
+            let body = r#"{"error":"conflict"}"#;
+            let response = format!(
+                "HTTP/1.1 409 Conflict\r\nContent-Type: application/json\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{}",
+                body.len(),
+                body
+            );
+            let _ = stream.write_all(response.as_bytes()).await;
+        });
+
+        let client = PaperclipClient::new(format!("http://{addr}"), "key".into());
+        let result = client
+            .checkout("issue-1", "agent-1", &["todo"])
+            .await;
+
+        assert!(result.is_ok(), "checkout should not error on 409");
+        assert!(result.unwrap().is_none(), "checkout should return None on 409");
+    }
 }

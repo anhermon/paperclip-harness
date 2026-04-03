@@ -122,8 +122,10 @@ pub async fn execute(args: PaperclipArgs) -> Result<()> {
                 .anthropic_key
                 .context("ANTHROPIC_API_KEY required for heartbeat")?;
 
+            // Build provider and memory once at the CLI level so every task
+            // reuses the same DB connection and provider instance.
             let executor: Arc<dyn TaskExecutor> =
-                Arc::new(AnvilExecutor::new(anthropic_key, cmd.model));
+                Arc::new(AnvilExecutor::build(anthropic_key, cmd.model).await?);
 
             let config = HeartbeatConfig {
                 agent_id,
@@ -143,17 +145,36 @@ pub async fn execute(args: PaperclipArgs) -> Result<()> {
 // ── Anvil executor ─────────────────────────────────────────────────────────────
 
 /// Task executor that drives a full Anvil agent session for a Paperclip task.
+///
+/// Provider, memory DB, and base config are initialised once (via [`build`])
+/// and reused across every task so that cross-task state is preserved and
+/// resources are not wasted.
 struct AnvilExecutor {
-    anthropic_key: String,
-    model: String,
+    provider: Arc<ClaudeProvider>,
+    memory: Arc<MemoryDb>,
+    config: Config,
 }
 
 impl AnvilExecutor {
-    fn new(anthropic_key: String, model: String) -> Self {
-        Self {
+    /// Build an executor, initialising the provider and memory DB exactly once.
+    async fn build(anthropic_key: String, model: String) -> Result<Self> {
+        let mut config = Config::load().unwrap_or_default();
+        config.provider.api_key = Some(anthropic_key.clone());
+        config.provider.model = model.clone();
+        config.provider.backend = "claude".to_string();
+
+        let provider = Arc::new(ClaudeProvider::new(
             anthropic_key,
             model,
-        }
+            config.provider.max_tokens,
+        ));
+        let memory = Arc::new(
+            MemoryDb::open(&config.memory.db_path)
+                .await
+                .context("open memory db for heartbeat executor")?,
+        );
+
+        Ok(Self { provider, memory, config })
     }
 
     /// Extract goal from issue description.  Uses the ## Objective section
@@ -199,24 +220,7 @@ impl TaskExecutor for AnvilExecutor {
             "Running Anvil agent for Paperclip task"
         );
 
-        // Build config, provider, and memory
-        let mut config = Config::load().unwrap_or_default();
-        config.provider.api_key = Some(self.anthropic_key.clone());
-        config.provider.model = self.model.clone();
-        config.provider.backend = "claude".to_string();
-
-        let provider = Arc::new(ClaudeProvider::new(
-            self.anthropic_key.clone(),
-            self.model.clone(),
-            config.provider.max_tokens,
-        ));
-        let memory = Arc::new(
-            MemoryDb::open(&config.memory.db_path)
-                .await
-                .context("open memory db for heartbeat executor")?,
-        );
-
-        let agent = Agent::new(provider, memory, config);
+        let agent = Agent::new(self.provider.clone(), self.memory.clone(), self.config.clone());
         let session = agent.run(&goal).await?;
 
         // Extract last assistant message text as the completion comment
@@ -242,5 +246,40 @@ impl TaskExecutor for AnvilExecutor {
         );
 
         Ok(ExecutionOutcome::Done(comment))
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn extract_goal_uses_objective_section() {
+        let desc = "## Objective\nDo the thing.\n\n## Scope\nFoo bar.";
+        let goal = AnvilExecutor::extract_goal("My Task", desc);
+        assert_eq!(goal, "My Task\n\nDo the thing.");
+    }
+
+    #[test]
+    fn extract_goal_falls_back_to_title_when_no_objective() {
+        let desc = "## Scope\nFoo bar.\n\n## Verification\n- [ ] thing";
+        let goal = AnvilExecutor::extract_goal("My Task", desc);
+        assert_eq!(goal, "My Task");
+    }
+
+    #[test]
+    fn extract_goal_falls_back_to_title_when_objective_is_empty() {
+        // Objective section exists but has no text before the next heading
+        let desc = "## Objective\n## Scope\nFoo bar.";
+        let goal = AnvilExecutor::extract_goal("My Task", desc);
+        assert_eq!(goal, "My Task");
+    }
+
+    #[test]
+    fn extract_goal_objective_at_end_of_string() {
+        // Objective is the last section — no subsequent ## heading
+        let desc = "## Scope\nFoo.\n\n## Objective\nDo the thing at the end.";
+        let goal = AnvilExecutor::extract_goal("My Task", desc);
+        assert_eq!(goal, "My Task\n\nDo the thing at the end.");
     }
 }

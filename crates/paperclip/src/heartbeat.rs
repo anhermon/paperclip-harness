@@ -93,11 +93,9 @@ impl HeartbeatLoop {
 
     /// Run one heartbeat cycle.  Returns the number of tasks processed.
     pub async fn run_once(&self) -> Result<usize> {
-        // Step 1: identity check (lightweight; mainly for logging)
-        let identity = self.client.get_identity().await?;
+        // Step 1: agent_id is already in config — no round-trip needed just for logging.
         info!(
-            agent = %identity.name,
-            id = %identity.id,
+            agent_id = %self.config.agent_id,
             "Heartbeat start"
         );
 
@@ -279,5 +277,94 @@ mod tests {
         ];
         let ordered = HeartbeatLoop::prioritise(&items);
         assert!(ordered.is_empty());
+    }
+
+    /// Verify that process_task posts a comment and returns Ok(true) when the
+    /// executor returns an error.  Uses a minimal in-process HTTP server to
+    /// capture the add_comment request.
+    #[tokio::test]
+    async fn process_task_posts_comment_on_executor_error() {
+        use std::sync::atomic::{AtomicBool, Ordering};
+        use std::sync::Arc as StdArc;
+
+        // ---- minimal inline mock server ----
+        use tokio::net::TcpListener;
+        use tokio::io::{AsyncReadExt, AsyncWriteExt};
+
+        let listener = TcpListener::bind("127.0.0.1:0").await.unwrap();
+        let addr = listener.local_addr().unwrap();
+        let comment_received = StdArc::new(AtomicBool::new(false));
+        let comment_received_clone = comment_received.clone();
+
+        // Spawn a bare TCP server that responds to every request with a
+        // canned JSON response (good enough for this unit test).
+        tokio::spawn(async move {
+            loop {
+                let (mut stream, _) = match listener.accept().await {
+                    Ok(s) => s,
+                    Err(_) => break,
+                };
+                let mut buf = vec![0u8; 4096];
+                let n = stream.read(&mut buf).await.unwrap_or(0);
+                let req = String::from_utf8_lossy(&buf[..n]);
+
+                // Detect the add_comment POST
+                if req.contains("POST") && req.contains("/comments") {
+                    comment_received_clone.store(true, Ordering::SeqCst);
+                }
+
+                // Respond with a valid Comment JSON for add_comment,
+                // and a valid Issue JSON for checkout + heartbeat-context.
+                let body = if req.contains("/checkout") {
+                    r#"{"id":"issue-1","companyId":"co","projectId":null,"projectWorkspaceId":null,"goalId":null,"parentId":null,"title":"T","description":null,"status":"todo","priority":"medium","assigneeAgentId":null,"assigneeUserId":null,"checkoutRunId":null,"executionRunId":null,"executionAgentNameKey":null,"executionLockedAt":null,"createdByAgentId":null,"createdByUserId":null,"issueNumber":1,"identifier":"TEST-1","originKind":"manual","originId":null,"originRunId":null,"requestDepth":0,"billingCode":null,"assigneeAdapterOverrides":null,"executionWorkspaceId":null,"executionWorkspacePreference":null,"executionWorkspaceSettings":null,"startedAt":null,"completedAt":null,"cancelledAt":null,"hiddenAt":null,"createdAt":"2024-01-01T00:00:00Z","updatedAt":"2024-01-01T00:00:00Z","labels":[],"labelIds":[]}"#
+                } else if req.contains("/heartbeat-context") {
+                    r#"{"issue":{"id":"issue-1","identifier":"TEST-1","title":"T","description":null,"status":"todo","priority":"medium","projectId":null,"goalId":null,"parentId":null,"assigneeAgentId":null,"assigneeUserId":null,"updatedAt":"2024-01-01T00:00:00Z"},"ancestors":[],"project":null,"goal":null,"commentCursor":{"totalComments":0,"latestCommentId":null,"latestCommentAt":null},"wakeComment":null}"#
+                } else {
+                    // add_comment response
+                    r#"{"id":"comment-1","issueId":"issue-1","body":"ok","authorAgentId":null,"authorUserId":null,"createdAt":"2024-01-01T00:00:00Z","updatedAt":"2024-01-01T00:00:00Z"}"#
+                };
+
+                let response = format!(
+                    "HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{}",
+                    body.len(),
+                    body
+                );
+                let _ = stream.write_all(response.as_bytes()).await;
+            }
+        });
+
+        // ---- executor that always errors ----
+        struct FailExecutor;
+        #[async_trait]
+        impl TaskExecutor for FailExecutor {
+            async fn execute(
+                &self,
+                _item: &InboxItem,
+                _context: &HeartbeatContext,
+            ) -> Result<ExecutionOutcome> {
+                Err(anyhow::anyhow!("simulated executor failure"))
+            }
+        }
+
+        let client = PaperclipClient::new(
+            format!("http://{addr}"),
+            "test-key".into(),
+        );
+        let config = HeartbeatConfig {
+            agent_id: "agent-1".into(),
+            company_id: "co-1".into(),
+            max_tasks_per_wake: 1,
+        };
+        let loop_ = HeartbeatLoop::new(client, config, StdArc::new(FailExecutor));
+
+        let item = make_item(IssueStatus::Todo, IssuePriority::Medium);
+        // Override id to match mock
+        let mut item = item;
+        item.id = "issue-1".into();
+
+        let result = loop_.process_task(&item).await;
+        assert!(result.is_ok(), "process_task should not propagate executor error");
+        assert!(result.unwrap(), "process_task should return true even on executor error");
+        assert!(comment_received.load(Ordering::SeqCst), "should have posted a comment");
     }
 }
