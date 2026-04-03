@@ -14,7 +14,6 @@ use tracing::{debug, info};
 pub struct Agent {
     provider: Arc<dyn Provider>,
     memory: Arc<MemoryDb>,
-    // Phase 3: tools will be used in the tool-call loop
     #[allow(dead_code)]
     tools: ToolRegistry,
     config: Config,
