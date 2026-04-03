@@ -33,19 +33,27 @@ pub struct RunArgs {
 /// CLI UI hook: drives the spinner and prints tool call/result lines.
 struct CliHook {
     spinner: std::sync::Mutex<Option<ProgressBar>>,
+    /// Iteration counter for the spinner badge.
+    iteration: std::sync::atomic::AtomicU32,
 }
 
 impl CliHook {
     fn new() -> Arc<Self> {
         Arc::new(Self {
             spinner: std::sync::Mutex::new(None),
+            iteration: std::sync::atomic::AtomicU32::new(0),
         })
     }
 }
 
 impl UiHook for CliHook {
     fn on_thinking(&self) {
-        let pb = ui::thinking_spinner("thinking…");
+        let iter = self
+            .iteration
+            .fetch_add(1, std::sync::atomic::Ordering::Relaxed)
+            + 1;
+        let label = format!("thinking [{}]", iter);
+        let pb = ui::thinking_spinner(&label);
         let mut guard = self.spinner.lock().unwrap_or_else(|e| e.into_inner());
         *guard = Some(pb);
     }
@@ -126,7 +134,8 @@ pub async fn execute(args: RunArgs) -> anyhow::Result<()> {
         ui::print_banner();
         ui::print_session_header("stream", &config.provider.model, &backend);
 
-        println!("\n{}", "─".repeat(60));
+        let t0 = Instant::now();
+
         let mut token_stream = provider.stream(&msgs).await?;
         let mut full_text = String::new();
         let stdout = std::io::stdout();
@@ -145,13 +154,13 @@ pub async fn execute(args: RunArgs) -> anyhow::Result<()> {
         }
 
         writeln!(out)?;
-        println!("{}", "─".repeat(60));
 
         // Persist the streamed response to memory.
         let ep = harness_memory::Episode::turn(uuid::Uuid::new_v4(), "assistant", &full_text);
         memory.insert(&ep).await?;
 
-        println!("Streaming complete.");
+        let elapsed_ms = t0.elapsed().as_millis() as u64;
+        ui::print_session_summary(0, 0, 1, elapsed_ms);
     } else {
         let hook = CliHook::new();
         let agent = Agent::new(Arc::clone(&provider), Arc::clone(&memory), config.clone())
