@@ -13,7 +13,7 @@ pub struct Config {
 pub struct ProviderConfig {
     /// Active provider: "claude", "openai", "ollama", "echo"
     pub backend: String,
-    /// Model identifier (e.g. "claude-sonnet-4-5-20251001")
+    /// Model identifier (e.g. "claude-sonnet-4-5")
     pub model: String,
     /// Max tokens per response
     pub max_tokens: u32,
@@ -49,7 +49,7 @@ impl Default for Config {
         Self {
             provider: ProviderConfig {
                 backend: "claude".to_string(),
-                model: "claude-sonnet-4-5-20251001".to_string(),
+                model: "claude-sonnet-4-5".to_string(),
                 max_tokens: 8192,
                 api_key: None,
                 base_url: None,
