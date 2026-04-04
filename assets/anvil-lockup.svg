@@ -33,13 +33,17 @@
       <stop offset="100%" stop-color="#b03000" stop-opacity="0"/>
     </linearGradient>
     <!-- Ember glow filter (tight, for small icon) -->
-    <filter id="lk-glow" x="-30%" y="-400%" width="160%" height="1000%">
+    <filter id="lk-glow" x="-30%" y="-600%" width="160%" height="1400%">
       <feGaussianBlur in="SourceGraphic" stdDeviation="2" result="blur"/>
       <feMerge>
         <feMergeNode in="blur"/>
         <feMergeNode in="blur"/>
         <feMergeNode in="SourceGraphic"/>
       </feMerge>
+    </filter>
+    <!-- Ambient halo (large soft glow behind body) -->
+    <filter id="lk-halo" x="-100%" y="-100%" width="300%" height="300%">
+      <feGaussianBlur stdDeviation="5"/>
     </filter>
     <!-- Particle glow -->
     <filter id="lk-ptcl" x="-100%" y="-100%" width="300%" height="300%">
@@ -54,27 +58,43 @@
   <!-- === ICON (62×72 rounded square, top-left offset 4,4) === -->
   <rect x="4" y="4" width="62" height="72" rx="14" fill="url(#lk-bg)"/>
   <g clip-path="url(#lk-clip)">
-    <!-- Feet -->
-    <rect x="10" y="55" width="18" height="7"  rx="1.5" fill="url(#lk-steel)"/>
-    <rect x="42" y="55" width="18" height="7"  rx="1.5" fill="url(#lk-steel)"/>
-    <!-- Waist -->
-    <path d="M15 47 L55 47 L51 55 L19 55 Z" fill="url(#lk-steel)"/>
-    <!-- Body -->
-    <path d="M9  33 L61 33 L61 39 L51 47 L19 47 L9  39 Z" fill="url(#lk-steel)"/>
-    <!-- Horn -->
-    <path d="M9  33 L9  39 L2  36 Z" fill="url(#lk-steel)"/>
-    <!-- Work face -->
-    <rect x="8"  y="28" width="54" height="5" rx="1.5" fill="url(#lk-face)"/>
-    <!-- Hardy hole -->
-    <rect x="56" y="29" width="4"  height="3.5" rx="0.5" fill="#1e1e1e" opacity="0.85"/>
-    <!-- Ember glow -->
-    <rect x="8"  y="26" width="54" height="3" rx="1.5"
+    <!-- Ambient orange halo above work face (behind body) -->
+    <ellipse cx="36" cy="24" rx="22" ry="7"
+             fill="#ff5500" opacity="0.35" filter="url(#lk-halo)"/>
+    <!-- Main body: bezier waist + two feet as single compound path -->
+    <path d="
+      M 18,32 L 57,32 L 57,37
+      C 55,37 53,39 52,43
+      L 51,49 L 55,55 L 55,62
+      L 40,62 L 39,56 L 32,56
+      L 31,62 L 16,62 L 16,55
+      L 20,49 L 19,43
+      C 18,39 16,37 14,37
+      L 14,32 Z
+    " fill="url(#lk-steel)"/>
+    <!-- Horn: bezier tapered arm — extends to x=4 (≥25% of total width) -->
+    <path d="
+      M 14,32 L 18,32 L 18,37
+      C 15,37 12,37 12,37
+      C 9,37 4,35 4,33
+      C 4,31 9,28 14,32 Z
+    " fill="url(#lk-steel)"/>
+    <!-- Work face: flat top surface -->
+    <rect x="14" y="27" width="43" height="5" rx="1.2" fill="url(#lk-face)"/>
+    <!-- Hardy hole: square socket near right of face -->
+    <rect x="52" y="28.5" width="4.5" height="4" rx="0.6"
+          fill="#1e1e1e" opacity="0.85"/>
+    <!-- Secondary ambient glow above face -->
+    <rect x="11" y="22" width="46" height="7" rx="2.5"
+          fill="#ff5500" opacity="0.40" filter="url(#lk-halo)"/>
+    <!-- Crisp ember line on top edge of work face -->
+    <rect x="14" y="24" width="43" height="3" rx="1.5"
           fill="url(#lk-ember)" filter="url(#lk-glow)"/>
-    <!-- Heat particles -->
+    <!-- Heat particles rising above the forge -->
     <g filter="url(#lk-ptcl)" opacity="0.55">
-      <circle cx="22" cy="22" r="1.8" fill="#ff6a00"/>
-      <circle cx="35" cy="18" r="1.5" fill="#ffa000"/>
-      <circle cx="48" cy="21" r="1.8" fill="#ff7500"/>
+      <circle cx="22" cy="18" r="1.8" fill="#ff6a00"/>
+      <circle cx="35" cy="14" r="1.5" fill="#ffa000"/>
+      <circle cx="48" cy="17" r="1.8" fill="#ff7500"/>
     </g>
   </g>
 
