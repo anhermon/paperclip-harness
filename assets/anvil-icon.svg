@@ -1,38 +1,44 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-label="Anvil icon">
   <!--
     Anvil icon — 64×64, legible at 32×32.
-    Palette: #2D3748 body, #4A5568 face, #718096 highlights.
-    Anatomy: two feet → waist trapezoid → table body → top face → horn.
-    Hardy hole rendered as a semi-transparent overlay (theme-safe).
-    Scale factor: 0.64 of the 100×100 base grid, centered in 64×64 canvas.
+    Side-profile silhouette: prominent left horn, flat work face,
+    tapered body with distinct waist, wide stable base.
+    Palette: #2D3748 body, #4A5568 face highlight, #718096 edge accents.
+
+    Path anatomy (clockwise from horn tip):
+      horn tip → horn top curve → face top → heel drop → right body taper
+      → waist → base right → foot right → base bottom → foot left
+      → base left → waist → left body → face bottom-left → horn underside
   -->
-  <g transform="translate(0, 2) scale(0.64)">
 
-    <!-- Feet -->
-    <rect x="18" y="83" width="25" height="9" rx="2" fill="#2D3748"/>
-    <rect x="57" y="83" width="25" height="9" rx="2" fill="#2D3748"/>
+  <!-- Main body: single compound path -->
+  <path
+    d="M 4,14
+       Q 13,9 22,10
+       L 60,10
+       L 60,18
+       L 56,18
+       L 44,32
+       L 48,42
+       L 56,52
+       L 56,58
+       L 8,58
+       L 8,52
+       L 16,42
+       L 20,32
+       L 22,18
+       Q 13,19 4,14
+       Z"
+    fill="#2D3748"/>
 
-    <!-- Waist -->
-    <path d="M28 73 L72 73 L65 83 L35 83 Z" fill="#2D3748"/>
+  <!-- Work surface: lighter tone on the flat face top -->
+  <rect x="22" y="10" width="38" height="4" rx="1" fill="#4A5568"/>
 
-    <!-- Table body -->
-    <path d="M20 57 L80 57 L80 65 L72 73 L28 73 L20 65 Z" fill="#2D3748"/>
+  <!-- Hardy hole: square tool socket in the face -->
+  <rect x="48" y="14" width="5" height="4" rx="0.5" fill="#1A202C"/>
 
-    <!-- Top face -->
-    <rect x="19" y="53" width="62" height="4.5" rx="1.5" fill="#4A5568"/>
-
-    <!-- Hardy hole -->
-    <rect x="65" y="58.5" width="8" height="6" rx="1" fill="#718096" opacity="0.35"/>
-
-    <!-- Horn -->
-    <path d="M20 57 L20 65 L4 62 Z" fill="#2D3748"/>
-
-    <!-- Horn edge highlight -->
-    <path d="M20 57 L4 62" stroke="#718096" stroke-width="1.2" fill="none" opacity="0.6"/>
-
-    <!-- Table right-edge highlight -->
-    <path d="M80 57 L80 65 L72 73" stroke="#718096" stroke-width="1.5" fill="none"
-          stroke-linecap="round" stroke-linejoin="round" opacity="0.5"/>
-
-  </g>
+  <!-- Heel edge: subtle right-side highlight -->
+  <line x1="60" y1="10" x2="60" y2="18"
+        stroke="#718096" stroke-width="1.5"
+        stroke-linecap="round" opacity="0.7"/>
 </svg>

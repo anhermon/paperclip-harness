@@ -1,74 +1,109 @@
 # SVG Creation Skill
 
-**Trigger:** "create SVG", "design SVG", "make a logo", "generate icon", "SVG logo", "vector graphic", "draw SVG"
+Generate clean, professional SVG graphics — silhouettes, icons, and logo lockups — using pure SVG path geometry with no external dependencies.
 
-You are an expert SVG designer. When asked to create an SVG graphic, follow these principles.
+## When to use
 
-## Design Process
+Trigger this skill when asked to:
+- Create or redesign an SVG icon, logo, or mascot
+- Produce a silhouette from a reference shape description
+- Evaluate why an existing SVG looks poor and fix it
 
-1. **Identify the key landmark points** of the shape before writing any paths. Sketch on paper or in comments.
-2. **Use bezier curves** (`C`/`Q` commands) for organic, natural shapes. Use straight lines (`L`, `H`, `V`) only for truly rigid geometric edges.
-3. **Close all shape paths** with `Z`.
-4. **Test legibility at target size** — if creating an icon, verify it reads at the minimum display size.
+## Core Design Process
 
-## SVG Template
+### 1. Identify the silhouette skeleton
 
-```xml
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 W H" role="img" aria-label="Description">
-  <defs>
-    <!-- gradients, masks, clipPaths go here -->
-  </defs>
+Before drawing, identify the 5–8 structural points that define the outline of the shape. For complex objects (anvil, animal, tool), sketch the profile in terms of:
+- **Widest span** (x-axis extremes)
+- **Tallest span** (y-axis extremes)
+- **Key inflection points** — where the outline changes direction significantly
 
-  <!-- Group related elements -->
-  <g id="body">
-    <!-- main shape -->
-  </g>
+Rule: a recognizable silhouette requires every major anatomical feature to be proportionally represented. If a feature defines the object (e.g., an anvil horn, a hammer head), it must occupy at least 25–35% of the relevant axis.
 
-  <!-- Highlights / overlays last so they render on top -->
-  <g id="highlights" opacity="0.6">
-    <!-- thin rects or paths for edge highlights -->
-  </g>
-</svg>
+### 2. Choose a viewBox
+
+| Use case | Recommended viewBox |
+|----------|---------------------|
+| Icon (square) | `0 0 64 64` or `0 0 32 32` |
+| Logo lockup (wide) | `0 0 240 100` |
+| Emblem (medium) | `0 0 120 80` |
+
+Leave a ~8% margin around the shape so it doesn't clip.
+
+### 3. Trace the outline as a single path
+
+Use a **clockwise** compound `<path d="...">` for the main silhouette. This keeps the fill rule consistent and allows easy editing.
+
+**Path command reference:**
+
+| Command | Meaning |
+|---------|---------|
+| `M x,y` | Move to (start point) |
+| `L x,y` | Line to |
+| `Q cx,cy x,y` | Quadratic bezier (one control point) |
+| `C c1x,c1y c2x,c2y x,y` | Cubic bezier (two control points) |
+| `Z` | Close path |
+
+**Horn / taper tips:**
+- A tapered projection (e.g., anvil horn, beak, spike) should use `Q` bezier curves for both the top and bottom edges, with control points that bow slightly away from the center line.
+- The tip ends at the intersection of the two bezier curves — both curves end at the same `M` anchor point.
+- Taper length should be ≥ 25% of total shape width to be visually prominent.
+
+**Example: left-pointing horn (face at x=22–60, y=10–18; tip at x=4, y=14):**
+```svg
+M 4,14
+Q 13,9 22,10     ← top edge: curves upward toward face
+L 60,10          ← face top
+...
+L 22,18          ← face bottom-left
+Q 13,19 4,14     ← bottom edge: curves downward back to tip
+Z
 ```
 
-## Path Command Reference
+### 4. Add surface depth with fills (no gradients)
 
-| Command | Meaning | Example |
-|---------|---------|---------|
-| `M x,y` | Move to (start new subpath) | `M 10,50` |
-| `L x,y` | Line to | `L 80,50` |
-| `H x` | Horizontal line to | `H 100` |
-| `V y` | Vertical line to | `V 80` |
-| `C cx1,cy1 cx2,cy2 x,y` | Cubic bezier curve | `C 20,30 60,30 80,50` |
-| `Q cx,cy x,y` | Quadratic bezier curve | `Q 50,20 80,50` |
-| `A rx,ry rot laf sf x,y` | Arc | `A 10,10 0 0 1 80,50` |
-| `Z` | Close path | `Z` |
+Use **2–3 flat tones** from the same palette:
 
-## Silhouette Tips
+| Layer | Purpose | Typical approach |
+|-------|---------|-----------------|
+| Body fill | Main silhouette | `fill="#2D3748"` |
+| Surface highlight | Top/lit surface | Lighter `<rect>` or `<path>` over face area |
+| Cutout / hole | Functional detail | Darker `<rect>` inside body |
+| Edge accent | Right or top rim | Short `<line>` or `<polyline>` in accent color |
 
-For complex silhouettes (animals, tools, objects):
-- Split into **structural layers**: base/body → mid-detail → highlights → overlay cutouts
-- Use `fill="currentColor"` when the graphic must adapt to dark/light themes
-- Use `fill="white"` for cutouts (holes) when on a solid background, or `fill-rule="evenodd"` with a compound path for theme-agnostic cutouts
+Avoid: `filter`, `gradient`, `feDropShadow`, external `<image>`, embedded raster data.
 
-## Color Palettes
+### 5. Verify the output
 
-**Dark metal (machinery, tools):**
-- Body: `#2D3748`
-- Face/surface: `#4A5568`
-- Edge highlights: `#718096`
+Before declaring done, confirm all of the following:
 
-**Monochrome / adaptive:**
-- Use `fill="currentColor"` — inherits CSS color
-- Cutouts: compound path with `fill-rule="evenodd"` so holes remain transparent
+- [ ] Valid XML — no unclosed tags, no duplicate `xmlns`
+- [ ] Correct `viewBox` matches the intended dimensions
+- [ ] Shape is recognizable at 32×32 (scale it down mentally)
+- [ ] Every major anatomical feature is proportionally represented
+- [ ] Self-contained — no `href`, no `xlink:href` to external files
+- [ ] No system font dependency in icon-only variants (text okay in logo lockups)
+- [ ] Palette follows spec: `#2D3748` body, `#4A5568` face, `#718096` highlights
 
-## Verification Checklist
+## Anvil-specific design reference
 
-Before finalizing any SVG:
-- [ ] `viewBox` dimensions match the design intent
-- [ ] All fill paths are closed with `Z`
-- [ ] No external `href` references (self-contained SVG)
-- [ ] No `<image>` tags unless using data URIs
-- [ ] Icon variant: legible at 32×32 (squint test — can you tell what it is?)
-- [ ] Logo variant: wordmark and icon optically balanced
-- [ ] Renders correctly in both light and dark contexts (or colors are intentionally fixed)
+The Anvil brand icon is a **blacksmith's anvil in left-profile silhouette**.
+
+Key proportions (verified design, 64×64 viewBox):
+- **Horn**: tip at x=4, y=14; attaches to face at x=22, y=10–18 (18px long, ~32% of width)
+- **Face**: x=22–60 (38px wide), y=10–18 (8px deep); top highlight rect in `#4A5568`
+- **Hardy hole**: `<rect x="48" y="14" width="5" height="4">` in `#1A202C`
+- **Waist**: body narrows from 34px (face) to 24px (waist) then flares to 48px (base)
+- **Base**: y=52–58, x=8–56 (48px wide, widest element)
+
+Logo lockup (240×100): use `transform="scale(1.5) translate(-1,-1)"` on the icon group, then add wordmark text at x=112, y=72, font-size=44, font-weight=600, letter-spacing=-1, fill=#2D3748, font-family='Helvetica Neue', Helvetica, Arial, sans-serif.
+
+## Common mistakes to avoid
+
+| Mistake | Fix |
+|---------|-----|
+| Horn is a tiny stub triangle | Horn must be ≥ 25% of total width; use bezier curves for both edges |
+| Body proportions look wrong | Waist should be noticeably narrower than both face and base |
+| SVG renders blank | Check that `fill` is set; `fill="none"` on outer element overrides everything |
+| Text looks different across platforms | Embed font as path, or use only system-safe fallback stack |
+| Shape clips at edge | Add 6–10% margin inside viewBox |
