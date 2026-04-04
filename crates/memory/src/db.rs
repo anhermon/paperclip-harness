@@ -344,7 +344,10 @@ mod tests {
 
         // Goal strings with trailing punctuation must not cause FTS5 syntax errors.
         let results = db.search("features. what can you do,", 10).await;
-        assert!(results.is_ok(), "punctuated query should not fail: {results:?}");
+        assert!(
+            results.is_ok(),
+            "punctuated query should not fail: {results:?}"
+        );
         assert_eq!(results.unwrap().len(), 1);
     }
 
@@ -353,7 +356,10 @@ mod tests {
         let db = MemoryDb::in_memory().await.unwrap();
         // A query made entirely of punctuation produces no valid FTS5 terms.
         let results = db.search("... !!! ---", 10).await;
-        assert!(results.is_ok(), "all-punctuation query should not fail: {results:?}");
+        assert!(
+            results.is_ok(),
+            "all-punctuation query should not fail: {results:?}"
+        );
         assert_eq!(results.unwrap().len(), 0);
     }
 }
