@@ -225,7 +225,7 @@ impl HeartbeatLoop {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::types::{ActiveRun, IssuePriority};
+    use crate::types::IssuePriority;
     use chrono::Utc;
 
     fn make_item(status: IssueStatus, priority: IssuePriority) -> InboxItem {
