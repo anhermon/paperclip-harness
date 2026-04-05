@@ -21,7 +21,10 @@ All production assets live in `assets/`. Source of truth is the SVG files — do
 | File | Purpose | Last updated |
 |------|---------|--------------|
 | `assets/anvil.svg` | App icon — dark bg, ember glow | 2026-04-04 |
+| `assets/anvil-icon.svg` | Standalone icon variant | 2026-04-04 |
+| `assets/anvil-logo.svg` | Logo mark | 2026-04-04 |
 | `assets/anvil-lockup.svg` | Horizontal lockup — icon + wordmark | 2026-04-04 |
+| `assets/anvil-mascot.svg` | Brand character / mascot | 2026-04-04 |
 
 ### Design tokens
 
